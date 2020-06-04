@@ -18,30 +18,45 @@ func initializeUserRoutes(app: App)  {
     app.router.delete("/user", handler: deleteUser)
 }
 
-private func saveUser(saveRequest: UserSaveRequest, completion: @escaping (User?, RequestError?) -> Void) {
+private func saveUser(saveRequest: UserSaveRequest, completion: @escaping (UserResponse?, RequestError?) -> Void) {
     Log.info("Saving User")
     let user = convertUser(request: saveRequest)
     user.save { (savedUser, error) in
         guard let newUser = savedUser else{
             Log.error("Failed to Save User")
-            completion(savedUser,error)
+            completion(nil,error)
             return
         }
         Log.info("New User Id \(newUser.id)")
-        completion(newUser,nil)
+        completion(convert(userEntity: user),nil)
     }
 }
 
 func convertUser(request:UserSaveRequest) -> User {
-    return User(id: UUID().uuidString , firstName: request.firstName, lastName: request.lastName)
+    return User(id: UUID().uuidString , firstName: request.firstName, lastName: request.lastName,dob: request.dobDate)
 }
 
-func getAllUsers(completion: @escaping ([User]?,RequestError?) -> Void) {
-    User.findAll(completion)
+func convert(userEntity user :User) -> UserResponse {
+    return UserResponse(id: user.id, firstName: user.firstName, lastName: user.lastName, dob: user.dob)
 }
 
-func findById(id: String, completion: @escaping (User?,RequestError?) -> Void) {
-    User.find(id: id, completion)
+func getAllUsers(completion: @escaping ([UserResponse]?,RequestError?) -> Void) {
+    User.findAll { (users, error) in
+        let response = users?.map({ (user) -> UserResponse in
+            convert(userEntity: user)
+        })
+        completion(response,error)
+    }
+}
+
+func findById(id: String, completion: @escaping (UserResponse?,RequestError?) -> Void) {
+    User.find(id: id) { (user, error) in
+        guard let user = user else{
+            completion(nil,error)
+            return
+        }
+        completion(convert(userEntity: user),error)
+    }
 }
 
 func deleteUser(id: String, completion: @escaping (RequestError?) -> Void) {
